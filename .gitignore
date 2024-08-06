@@ -1,5 +1,7 @@
 env/
 .env
-cache/
+.cache/
 
 practice.ipynb
+
+.streamlit/secrets.toml
