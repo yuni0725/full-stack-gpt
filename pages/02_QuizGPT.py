@@ -1,4 +1,4 @@
-import json 
+import json
 import streamlit as st
 from langchain.retrievers import WikipediaRetriever
 from langchain.document_loaders import UnstructuredFileLoader
@@ -10,19 +10,18 @@ from langchain.schema import BaseOutputParser
 
 st.set_page_config(
     page_title="QuizeGPT",
-    page_icon='❓',
+    page_icon="❓",
 )
 
 st.title("Quiz GPT")
 
 llm = ChatOpenAI(
     temperature=0.1,
-    model='gpt-3.5-turbo-0125',
+    model="gpt-3.5-turbo-0125",
     streaming=True,
-    callbacks=[
-        StreamingStdOutCallbackHandler()
-    ],
+    callbacks=[StreamingStdOutCallbackHandler()],
 )
+
 
 class JsonOutputParser(BaseOutputParser):
     def parse(self, text):
@@ -36,22 +35,27 @@ class JsonOutputParser(BaseOutputParser):
             return {}
         try:
             return json.loads(text)
-        
+
         except json.JSONDecodeError as e:
-            st.error(f"JSONDecodeError: {e.msg} at line {e.lineno} column {e.colno} (char {e.pos})")
+            st.error(
+                f"JSONDecodeError: {e.msg} at line {e.lineno} column {e.colno} (char {e.pos})"
+            )
             st.error(f"Text that caused the error: {text}")
             return {}
 
+
 output_parser = JsonOutputParser()
+
 
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
 
+
 question_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
+    [
+        (
             "system",
-                """
+            """
                 You are a helpful assistant that is role playing as a teacher.
                     
                 Based ONLY on the following context make 10 questions to test the user's knowledge about the text.
@@ -78,9 +82,9 @@ question_prompt = ChatPromptTemplate.from_messages(
                     
                 Context: {context}
             """,
-            )
-        ]
-    )
+        )
+    ]
+)
 
 formatting_prompt = ChatPromptTemplate.from_messages(
     [
@@ -204,11 +208,10 @@ formatting_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-question_chain = {
-    "context" : format_docs
-} | question_prompt | llm
+question_chain = {"context": format_docs} | question_prompt | llm
 
 formatting_chain = formatting_prompt | llm
+
 
 @st.cache_data(show_spinner="Loading files...")
 def split_file(file):
@@ -227,6 +230,7 @@ def split_file(file):
 
     return docs
 
+
 @st.cache_data(show_spinner="Making quiz...")
 def run_quize_chain(_docs, topic):
     chain = {"context": question_chain} | formatting_chain | output_parser
@@ -234,21 +238,22 @@ def run_quize_chain(_docs, topic):
 
     return response
 
+
 @st.cache_data(show_spinner="Searching Wikipedia")
 def search_wiki(term):
-    retriever = WikipediaRetriever(top_k_results=1, lang='en')
+    retriever = WikipediaRetriever(top_k_results=1, lang="en")
     docs = retriever.get_relevant_documents(term)
     return docs
 
 
 with st.sidebar:
-    docs=None
-    topic=None
-    choice = st.selectbox("Choose what you want to use.", (
-        "File", "Wikipedia Article"
-    ))
+    docs = None
+    topic = None
+    choice = st.selectbox("Choose what you want to use.", ("File", "Wikipedia Article"))
     if choice == "File":
-        file = st.file_uploader("Upload a .docx, .txt, .pdf file", type=['pdf', 'txt', 'docx'])
+        file = st.file_uploader(
+            "Upload a .docx, .txt, .pdf file", type=["pdf", "txt", "docx"]
+        )
 
         if file:
             docs = split_file(file)
@@ -256,7 +261,7 @@ with st.sidebar:
         topic = st.text_input("Search Wikipedia...")
         if topic:
             docs = search_wiki(topic)
-            
+
 
 if not docs:
     st.markdown(
@@ -271,17 +276,18 @@ if not docs:
 
 else:
     response = run_quize_chain(docs, topic if topic else file.name)
-    st.write(response)
     with st.form("questions_form"):
-        for question in response['questions']:
-            st.write(question['question'])
-            value = st.radio("Select Answer", [answer['answer'] for answer in question['answers']], index=None)
+        for question in response["questions"]:
+            st.write(question["question"])
+            value = st.radio(
+                "Select Answer",
+                [answer["answer"] for answer in question["answers"]],
+                index=None,
+            )
 
-            if {'answer' : value, "correct" : True} in question['answers']:
+            if {"answer": value, "correct": True} in question["answers"]:
                 st.success("Correct!")
             elif value is not None:
                 st.error("Wrong!")
 
-
         button = st.form_submit_button()
-
